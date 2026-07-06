@@ -1,5 +1,5 @@
 diff --git a/src/compositor/noctalia_compositor.c b/src/compositor/noctalia_compositor.c
-index e40bb76..3f660e3 100644
+index e40bb76..0c8920b 100644
 --- a/src/compositor/noctalia_compositor.c
 +++ b/src/compositor/noctalia_compositor.c
 @@ -12,6 +12,7 @@
@@ -29,17 +29,28 @@ index e40bb76..3f660e3 100644
    server->cursor_theme[0] = '\0';
    server->cursor_size = 0;
    server->cursor_path[0] = '\0';
-@@ -290,6 +296,9 @@ static void read_greeter_config(struct greeter_server* server) {
+@@ -290,6 +296,20 @@ static void read_greeter_config(struct greeter_server* server) {
    if (config.manual_mode_height > 0) {
      server->manual_mode_height = config.manual_mode_height;
    }
 +  if (config.idle_timeout_sec > 0) {
 +    server->idle_timeout_sec = config.idle_timeout_sec;
 +  }
++  const char* env_idle = getenv("NOCTALIA_GREETER_IDLE_TIMEOUT");
++  if (env_idle != NULL && env_idle[0] != '\0') {
++    char* end = NULL;
++    const long parsed = strtol(env_idle, &end, 10);
++    if (end != env_idle && parsed >= 0 && parsed <= 86400) {
++      server->idle_timeout_sec = (int)parsed;
++    }
++  }
++  if (server->idle_timeout_sec > 0) {
++    wlr_log(WLR_INFO, "idle blanking enabled: %ds", server->idle_timeout_sec);
++  }
    if (config.cursor_theme[0] != '\0') {
      snprintf(server->cursor_theme, sizeof(server->cursor_theme), "%s", config.cursor_theme);
    }
-@@ -604,6 +613,51 @@ static void handle_output_request_state(struct wl_listener* listener, void* data
+@@ -604,6 +624,51 @@ static void handle_output_request_state(struct wl_listener* listener, void* data
    wlr_output_commit_state(output->wlr_output, event->state);
  }
  
@@ -91,7 +102,7 @@ index e40bb76..3f660e3 100644
  static void disable_output(struct greeter_output* output) {
    if (!output->active && !output->wlr_output->enabled) {
      return;
-@@ -984,6 +1038,7 @@ static void pointer_focus(struct greeter_server* server, double lx, double ly) {
+@@ -984,6 +1049,7 @@ static void pointer_focus(struct greeter_server* server, double lx, double ly) {
  static void handle_cursor_motion(struct wl_listener* listener, void* data) {
    struct greeter_server* server = wl_container_of(listener, server, cursor_motion);
    struct wlr_pointer_motion_event* event = data;
@@ -99,7 +110,7 @@ index e40bb76..3f660e3 100644
    wlr_cursor_move(server->cursor, &event->pointer->base, event->delta_x, event->delta_y);
    pointer_focus(server, server->cursor->x, server->cursor->y);
  }
-@@ -991,6 +1046,7 @@ static void handle_cursor_motion(struct wl_listener* listener, void* data) {
+@@ -991,6 +1057,7 @@ static void handle_cursor_motion(struct wl_listener* listener, void* data) {
  static void handle_cursor_motion_absolute(struct wl_listener* listener, void* data) {
    struct greeter_server* server = wl_container_of(listener, server, cursor_motion_absolute);
    struct wlr_pointer_motion_absolute_event* event = data;
@@ -107,7 +118,7 @@ index e40bb76..3f660e3 100644
    wlr_cursor_warp_absolute(server->cursor, &event->pointer->base, event->x, event->y);
    pointer_focus(server, server->cursor->x, server->cursor->y);
  }
-@@ -998,6 +1054,7 @@ static void handle_cursor_motion_absolute(struct wl_listener* listener, void* da
+@@ -998,6 +1065,7 @@ static void handle_cursor_motion_absolute(struct wl_listener* listener, void* da
  static void handle_cursor_button(struct wl_listener* listener, void* data) {
    struct greeter_server* server = wl_container_of(listener, server, cursor_button);
    struct wlr_pointer_button_event* event = data;
@@ -115,7 +126,7 @@ index e40bb76..3f660e3 100644
    pointer_focus(server, server->cursor->x, server->cursor->y);
    wlr_seat_pointer_notify_button(server->seat, event->time_msec, event->button, event->state);
  }
-@@ -1050,6 +1107,7 @@ static void handle_keyboard_key(struct wl_listener* listener, void* data) {
+@@ -1050,6 +1118,7 @@ static void handle_keyboard_key(struct wl_listener* listener, void* data) {
      }
    }
  
@@ -123,7 +134,7 @@ index e40bb76..3f660e3 100644
    wlr_seat_keyboard_notify_key(server->seat, event->time_msec, event->keycode, event->state);
  }
  
-@@ -1386,6 +1444,7 @@ int main(int argc, char** argv) {
+@@ -1386,6 +1455,7 @@ int main(int argc, char** argv) {
    wl_list_init(&server.outputs);
    wl_list_init(&server.keyboards);
    read_greeter_config(&server);
@@ -131,7 +142,7 @@ index e40bb76..3f660e3 100644
  
    server.display = wl_display_create();
    if (server.display == NULL) {
-@@ -1496,6 +1555,10 @@ int main(int argc, char** argv) {
+@@ -1496,6 +1566,10 @@ int main(int argc, char** argv) {
  
    struct wl_event_loop* loop = wl_display_get_event_loop(server.display);
    server.sigchld_source = wl_event_loop_add_signal(loop, SIGCHLD, handle_sigchld, &server);
@@ -142,7 +153,7 @@ index e40bb76..3f660e3 100644
    server.child_argc = argc;
    server.child_argv_ptr = argv;
    schedule_launch(&server);
-@@ -1509,6 +1572,9 @@ int main(int argc, char** argv) {
+@@ -1509,6 +1583,9 @@ int main(int argc, char** argv) {
    if (server.sigchld_source != NULL) {
      wl_event_source_remove(server.sigchld_source);
    }
@@ -153,7 +164,7 @@ index e40bb76..3f660e3 100644
    wl_display_destroy_clients(server.display);
    wl_display_destroy(server.display);
 diff --git a/src/greeter/greeter_config_io.cpp b/src/greeter/greeter_config_io.cpp
-index 953d001..f454908 100644
+index 953d001..8e32cc4 100644
 --- a/src/greeter/greeter_config_io.cpp
 +++ b/src/greeter/greeter_config_io.cpp
 @@ -23,7 +23,8 @@ namespace {
@@ -191,7 +202,7 @@ index 953d001..f454908 100644
    void warnUnknownTopLevelKey(const std::filesystem::path& path, std::string_view key) {
      kLog.warn("{}: unrecognized top-level key '{}' (ignored)", path.string(), key);
    }
-@@ -172,6 +184,12 @@ namespace {
+@@ -172,6 +184,18 @@ namespace {
                kLog.warn("{}: invalid output.height value", path.string());
              }
            }
@@ -200,11 +211,17 @@ index 953d001..f454908 100644
 +            warnUnknownSectionKey(path, keyView, entryView);
 +            continue;
 +          }
-+          config.idleTimeoutSec = idleTimeoutValue(entryNode);
++          if (entryView == "timeout") {
++            if (const auto timeout = idleTimeoutValue(entryNode)) {
++              config.idleTimeoutSec = *timeout;
++            } else {
++              kLog.warn("{}: invalid idle.timeout value", path.string());
++            }
++          }
          } else if (keyView == "cursor") {
            if (!isKnownCursorKey(entryView)) {
              warnUnknownSectionKey(path, keyView, entryView);
-@@ -392,7 +410,7 @@ namespace greeter::config {
+@@ -392,7 +416,7 @@ namespace greeter::config {
      std::ostringstream out;
      out << "# noctalia-greeter greeter.toml\n";
      out << "# [session] default/last, [user] default, [appearance] scheme/password_style/hide_logo\n";
@@ -213,7 +230,7 @@ index 953d001..f454908 100644
      out << "# [keyboard] layout/variant/options/numlock\n";
      out << "# [auth] allow_empty_password (bool, default false; enables fingerprint/smartcard PAM auth)\n";
      out << '\n';
-@@ -445,6 +463,9 @@ extern "C" void greeter_compositor_config_load(const char* state_dir, struct gre
+@@ -445,6 +469,9 @@ extern "C" void greeter_compositor_config_load(const char* state_dir, struct gre
    if (config.outputModeHeight.has_value() && *config.outputModeHeight > 0) {
      out->manual_mode_height = *config.outputModeHeight;
    }
