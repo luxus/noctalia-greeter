@@ -1,7 +1,8 @@
-diff -ruN a/src/compositor/noctalia_compositor.c b/src/compositor/noctalia_compositor.c
---- a/src/compositor/noctalia_compositor.c	2026-06-21 11:33:31.000000000 +0200
-+++ b/src/compositor/noctalia_compositor.c	2026-06-22 01:40:30.586231675 +0200
-@@ -121,6 +121,8 @@
+diff --git a/src/compositor/noctalia_compositor.c b/src/compositor/noctalia_compositor.c
+index 03e7e3f..96d4724 100644
+--- a/src/compositor/noctalia_compositor.c
++++ b/src/compositor/noctalia_compositor.c
+@@ -121,6 +121,8 @@ struct greeter_server {
    char** child_argv_ptr;
    char preferred_output[128];
    float manual_scale;
@@ -10,7 +11,7 @@ diff -ruN a/src/compositor/noctalia_compositor.c b/src/compositor/noctalia_compo
    char cursor_theme[128];
    int cursor_size;
    char cursor_path[512];
-@@ -260,6 +262,8 @@
+@@ -262,6 +264,8 @@ static void parse_output_layout_value(struct greeter_server* server, char* value
  static void read_greeter_config(struct greeter_server* server) {
    server->preferred_output[0] = '\0';
    server->manual_scale = 0.0f;
@@ -19,7 +20,7 @@ diff -ruN a/src/compositor/noctalia_compositor.c b/src/compositor/noctalia_compo
    server->cursor_theme[0] = '\0';
    server->cursor_size = 0;
    server->cursor_path[0] = '\0';
-@@ -278,6 +282,12 @@
+@@ -280,6 +284,12 @@ static void read_greeter_config(struct greeter_server* server) {
    if (config.manual_scale >= 1.0f) {
      server->manual_scale = config.manual_scale;
    }
@@ -32,7 +33,7 @@ diff -ruN a/src/compositor/noctalia_compositor.c b/src/compositor/noctalia_compo
    if (config.cursor_theme[0] != '\0') {
      snprintf(server->cursor_theme, sizeof(server->cursor_theme), "%s", config.cursor_theme);
    }
-@@ -619,7 +629,24 @@
+@@ -622,7 +632,24 @@ static void disable_output(struct greeter_output* output) {
    }
  }
  
@@ -58,20 +59,28 @@ diff -ruN a/src/compositor/noctalia_compositor.c b/src/compositor/noctalia_compo
    struct wlr_output_mode* preferred = wlr_output_preferred_mode(wlr_output);
    if (preferred == NULL) {
      return NULL;
-@@ -653,7 +680,7 @@
+@@ -656,12 +683,13 @@ static bool commit_output_enabled(struct greeter_output* output) {
    struct wlr_output_state state;
    wlr_output_state_init(&state);
    wlr_output_state_set_enabled(&state, true);
 -  struct wlr_output_mode* mode = select_output_mode(output->wlr_output);
-+  struct wlr_output_mode* mode = select_output_mode(output->wlr_output, server->manual_mode_width, server->manual_mode_height);
++  struct wlr_output_mode* mode =
++      select_output_mode(output->wlr_output, server->manual_mode_width, server->manual_mode_height);
    if (mode != NULL) {
      wlr_output_state_set_mode(&state, mode);
      wlr_log(WLR_INFO, "selected output mode: %dx%d @ %.3f Hz", mode->width, mode->height, mode->refresh / 1000.0);
-diff -ruN a/src/greeter/greeter_config_io.cpp b/src/greeter/greeter_config_io.cpp
---- a/src/greeter/greeter_config_io.cpp	2026-06-21 11:33:31.000000000 +0200
-+++ b/src/greeter/greeter_config_io.cpp	2026-06-22 01:40:30.586045493 +0200
-@@ -32,7 +32,7 @@
-   [[nodiscard]] bool isKnownAppearanceKey(std::string_view key) { return key == "scheme" || key == "password_style"; }
+   }
+-  const float scale = output_ui_scale(output->wlr_output, output->server->manual_scale);
++  const float scale = output_ui_scale(output->wlr_output, server->manual_scale);
+   wlr_output_state_set_scale(&state, scale);
+   bool ok = wlr_output_commit_state(output->wlr_output, &state);
+   wlr_output_state_finish(&state);
+diff --git a/src/greeter/greeter_config_io.cpp b/src/greeter/greeter_config_io.cpp
+index 6a9612c..593d559 100644
+--- a/src/greeter/greeter_config_io.cpp
++++ b/src/greeter/greeter_config_io.cpp
+@@ -35,7 +35,7 @@ namespace {
+   }
  
    [[nodiscard]] bool isKnownOutputKey(std::string_view key) {
 -    return key == "name" || key == "layout" || key == "scale";
@@ -79,7 +88,7 @@ diff -ruN a/src/greeter/greeter_config_io.cpp b/src/greeter/greeter_config_io.cp
    }
  
    [[nodiscard]] bool isKnownCursorKey(std::string_view key) { return key == "theme" || key == "size" || key == "path"; }
-@@ -70,6 +70,15 @@
+@@ -75,6 +75,15 @@ namespace {
      return std::nullopt;
    }
  
@@ -95,7 +104,7 @@ diff -ruN a/src/greeter/greeter_config_io.cpp b/src/greeter/greeter_config_io.cp
    void warnUnknownTopLevelKey(const std::filesystem::path& path, std::string_view key) {
      kLog.warn("{}: unrecognized top-level key '{}' (ignored)", path.string(), key);
    }
-@@ -135,10 +144,16 @@
+@@ -144,10 +153,16 @@ namespace {
              config.outputName = stringValue(entryNode);
            } else if (entryView == "layout") {
              config.outputLayout = stringValue(entryNode);
@@ -116,7 +125,17 @@ diff -ruN a/src/greeter/greeter_config_io.cpp b/src/greeter/greeter_config_io.cp
            }
          } else if (keyView == "cursor") {
            if (!isKnownCursorKey(entryView)) {
-@@ -378,6 +393,12 @@
+@@ -369,7 +384,8 @@ namespace greeter::config {
+     std::ostringstream out;
+     out << "# noctalia-greeter greeter.toml\n";
+     out << "# [session] default/last, [user] default, [appearance] scheme/password_style/hide_logo\n";
+-    out << "# [output] name/layout/scale, [cursor] theme/size/path, [keyboard] layout/variant/options/numlock\n";
++    out << "# [output] name/layout/scale/width/height, [cursor] theme/size/path\n";
++    out << "# [keyboard] layout/variant/options/numlock\n";
+     out << "# [auth] allow_empty_password (bool, default false; enables fingerprint/smartcard PAM auth)\n";
+     out << '\n';
+     out << formatToml(table);
+@@ -415,6 +431,12 @@ extern "C" void greeter_compositor_config_load(const char* state_dir, struct gre
    if (config.outputScale.has_value() && *config.outputScale >= 1.0f) {
      out->manual_scale = *config.outputScale;
    }
@@ -129,10 +148,11 @@ diff -ruN a/src/greeter/greeter_config_io.cpp b/src/greeter/greeter_config_io.cp
    if (config.cursorSize.has_value() && *config.cursorSize > 0) {
      out->cursor_size = *config.cursorSize;
    }
-diff -ruN a/src/greeter/greeter_config_io.h b/src/greeter/greeter_config_io.h
---- a/src/greeter/greeter_config_io.h	2026-06-21 11:33:31.000000000 +0200
-+++ b/src/greeter/greeter_config_io.h	2026-06-22 01:40:30.585927651 +0200
-@@ -9,6 +9,8 @@
+diff --git a/src/greeter/greeter_config_io.h b/src/greeter/greeter_config_io.h
+index 0f57027..09e8680 100644
+--- a/src/greeter/greeter_config_io.h
++++ b/src/greeter/greeter_config_io.h
+@@ -9,6 +9,8 @@ extern "C" {
  struct greeter_compositor_config {
    char preferred_output[128];
    float manual_scale;
@@ -141,10 +161,11 @@ diff -ruN a/src/greeter/greeter_config_io.h b/src/greeter/greeter_config_io.h
    char cursor_theme[128];
    int cursor_size;
    char cursor_path[512];
-diff -ruN a/src/greeter/greeter_config_store.h b/src/greeter/greeter_config_store.h
---- a/src/greeter/greeter_config_store.h	2026-06-21 11:33:31.000000000 +0200
-+++ b/src/greeter/greeter_config_store.h	2026-06-22 01:40:30.585983392 +0200
-@@ -18,6 +18,8 @@
+diff --git a/src/greeter/greeter_config_store.h b/src/greeter/greeter_config_store.h
+index d0b9065..0a55da5 100644
+--- a/src/greeter/greeter_config_store.h
++++ b/src/greeter/greeter_config_store.h
+@@ -19,6 +19,8 @@ namespace greeter::config {
      std::optional<std::string> outputName;
      std::optional<std::string> outputLayout;
      std::optional<float> outputScale;

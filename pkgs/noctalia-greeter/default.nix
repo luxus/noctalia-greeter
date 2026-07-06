@@ -4,5 +4,6 @@
 noctaliaGreeter.overrideAttrs (old: {
   patches = (old.patches or [ ]) ++ [
     ./patches/noctalia-greeter-output-mode.patch
+    ./patches/noctalia-greeter-idle-blank.patch
   ];
 })

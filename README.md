@@ -27,15 +27,11 @@ nix build .#noctalia-greeter
 
 | Patch | Purpose | Upstream |
 | --- | --- | --- |
-| `noctalia-greeter-output-mode.patch` | `[output] width` / `height` in `greeter.toml` to pick a DRM mode and avoid login modeset flash | Refs [noctalia-dev/noctalia-greeter#53](https://github.com/noctalia-dev/noctalia-greeter/issues/53) |
+| `noctalia-greeter-output-mode.patch` | `[output] width` / `height` in `greeter.toml` to pick a DRM mode and avoid login modeset flash | PR [noctalia-dev/noctalia-greeter#55](https://github.com/noctalia-dev/noctalia-greeter/pull/55) |
+| `noctalia-greeter-idle-blank.patch` | `[idle] timeout` — compositor blanks outputs after no pointer/keyboard input | pending upstream PR |
 
 On an upstream version bump, rebuild and fix any rejected hunks. Drop patches here
 once they land upstream.
-
-## Planned
-
-- Compositor idle screen blanking (`[idle] timeout` in `greeter.toml`) — replaces
-  external logind + `wlr-randr` workarounds that cannot work on this compositor.
 
 ## What this repo is not
 
