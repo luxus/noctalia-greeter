@@ -1,5 +1,5 @@
 diff --git a/src/compositor/noctalia_compositor.c b/src/compositor/noctalia_compositor.c
-index 96d4724..7700820 100644
+index 96d4724..7c175a3 100644
 --- a/src/compositor/noctalia_compositor.c
 +++ b/src/compositor/noctalia_compositor.c
 @@ -12,6 +12,7 @@
@@ -21,16 +21,7 @@ index 96d4724..7700820 100644
    char cursor_theme[128];
    int cursor_size;
    char cursor_path[512];
-@@ -261,11 +266,16 @@ static void parse_output_layout_value(struct greeter_server* server, char* value
-   }
- }
- 
-+static void note_activity(struct greeter_server* server);
-+static void wake_outputs(struct greeter_server* server);
-+static void blank_active_outputs(struct greeter_server* server);
-+
- static void read_greeter_config(struct greeter_server* server) {
-   server->preferred_output[0] = '\0';
+@@ -266,6 +271,7 @@ static void read_greeter_config(struct greeter_server* server) {
    server->manual_scale = 0.0f;
    server->manual_mode_width = 0;
    server->manual_mode_height = 0;
@@ -38,7 +29,7 @@ index 96d4724..7700820 100644
    server->cursor_theme[0] = '\0';
    server->cursor_size = 0;
    server->cursor_path[0] = '\0';
-@@ -290,6 +300,9 @@ static void read_greeter_config(struct greeter_server* server) {
+@@ -290,6 +296,9 @@ static void read_greeter_config(struct greeter_server* server) {
    if (config.manual_mode_height > 0) {
      server->manual_mode_height = config.manual_mode_height;
    }
@@ -48,51 +39,38 @@ index 96d4724..7700820 100644
    if (config.cursor_theme[0] != '\0') {
      snprintf(server->cursor_theme, sizeof(server->cursor_theme), "%s", config.cursor_theme);
    }
-@@ -604,6 +617,65 @@ static void handle_output_request_state(struct wl_listener* listener, void* data
+@@ -604,6 +613,51 @@ static void handle_output_request_state(struct wl_listener* listener, void* data
    wlr_output_commit_state(output->wlr_output, event->state);
  }
  
-+static void note_activity(struct greeter_server* server) {
-+  clock_gettime(CLOCK_MONOTONIC, &server->last_activity);
-+  if (server->screens_blanked) {
-+    wake_outputs(server);
-+  }
-+}
++enum { IDLE_POLL_MS = 2000 };
 +
-+static void blank_active_outputs(struct greeter_server* server) {
++static void set_outputs_power(struct greeter_server* server, bool on) {
 +  struct greeter_output* output;
 +  wl_list_for_each(output, &server->outputs, link) {
-+    if (!output->active || !output->wlr_output->enabled) {
++    if (!output->active || on == output->wlr_output->enabled) {
 +      continue;
 +    }
 +    struct wlr_output_state state;
 +    wlr_output_state_init(&state);
-+    wlr_output_state_set_enabled(&state, false);
++    wlr_output_state_set_enabled(&state, on);
 +    wlr_output_commit_state(output->wlr_output, &state);
 +    wlr_output_state_finish(&state);
-+  }
-+  server->screens_blanked = true;
-+  wlr_log(WLR_INFO, "idle: blanked active outputs");
-+}
-+
-+static void wake_outputs(struct greeter_server* server) {
-+  struct greeter_output* output;
-+  wl_list_for_each(output, &server->outputs, link) {
-+    if (!output->active || output->wlr_output->enabled) {
-+      continue;
-+    }
-+    struct wlr_output_state state;
-+    wlr_output_state_init(&state);
-+    wlr_output_state_set_enabled(&state, true);
-+    wlr_output_commit_state(output->wlr_output, &state);
-+    wlr_output_state_finish(&state);
-+    if (output->scene_output != NULL) {
++    if (on && output->scene_output != NULL) {
 +      wlr_output_schedule_frame(output->wlr_output);
 +    }
 +  }
-+  server->screens_blanked = false;
-+  schedule_output_frames(server);
-+  wlr_log(WLR_INFO, "idle: woke outputs");
++  server->screens_blanked = !on;
++  if (on) {
++    schedule_output_frames(server);
++  }
++}
++
++static void note_activity(struct greeter_server* server) {
++  clock_gettime(CLOCK_MONOTONIC, &server->last_activity);
++  if (server->screens_blanked) {
++    set_outputs_power(server, true);
++  }
 +}
 +
 +static int handle_idle_timer(void* data) {
@@ -103,18 +81,17 @@ index 96d4724..7700820 100644
 +  if (!server->screens_blanked) {
 +    struct timespec now;
 +    clock_gettime(CLOCK_MONOTONIC, &now);
-+    const long elapsed = now.tv_sec - server->last_activity.tv_sec;
-+    if (elapsed >= server->idle_timeout_sec) {
-+      blank_active_outputs(server);
++    if (now.tv_sec - server->last_activity.tv_sec >= server->idle_timeout_sec) {
++      set_outputs_power(server, false);
 +    }
 +  }
-+  return 2000;
++  return IDLE_POLL_MS;
 +}
 +
  static void disable_output(struct greeter_output* output) {
    if (!output->active && !output->wlr_output->enabled) {
      return;
-@@ -981,6 +1053,7 @@ static void pointer_focus(struct greeter_server* server, double lx, double ly) {
+@@ -981,6 +1035,7 @@ static void pointer_focus(struct greeter_server* server, double lx, double ly) {
  static void handle_cursor_motion(struct wl_listener* listener, void* data) {
    struct greeter_server* server = wl_container_of(listener, server, cursor_motion);
    struct wlr_pointer_motion_event* event = data;
@@ -122,7 +99,7 @@ index 96d4724..7700820 100644
    wlr_cursor_move(server->cursor, &event->pointer->base, event->delta_x, event->delta_y);
    pointer_focus(server, server->cursor->x, server->cursor->y);
  }
-@@ -988,6 +1061,7 @@ static void handle_cursor_motion(struct wl_listener* listener, void* data) {
+@@ -988,6 +1043,7 @@ static void handle_cursor_motion(struct wl_listener* listener, void* data) {
  static void handle_cursor_motion_absolute(struct wl_listener* listener, void* data) {
    struct greeter_server* server = wl_container_of(listener, server, cursor_motion_absolute);
    struct wlr_pointer_motion_absolute_event* event = data;
@@ -130,7 +107,7 @@ index 96d4724..7700820 100644
    wlr_cursor_warp_absolute(server->cursor, &event->pointer->base, event->x, event->y);
    pointer_focus(server, server->cursor->x, server->cursor->y);
  }
-@@ -995,6 +1069,7 @@ static void handle_cursor_motion_absolute(struct wl_listener* listener, void* da
+@@ -995,6 +1051,7 @@ static void handle_cursor_motion_absolute(struct wl_listener* listener, void* da
  static void handle_cursor_button(struct wl_listener* listener, void* data) {
    struct greeter_server* server = wl_container_of(listener, server, cursor_button);
    struct wlr_pointer_button_event* event = data;
@@ -138,7 +115,7 @@ index 96d4724..7700820 100644
    pointer_focus(server, server->cursor->x, server->cursor->y);
    wlr_seat_pointer_notify_button(server->seat, event->time_msec, event->button, event->state);
  }
-@@ -1047,6 +1122,7 @@ static void handle_keyboard_key(struct wl_listener* listener, void* data) {
+@@ -1047,6 +1104,7 @@ static void handle_keyboard_key(struct wl_listener* listener, void* data) {
      }
    }
  
@@ -146,7 +123,7 @@ index 96d4724..7700820 100644
    wlr_seat_keyboard_notify_key(server->seat, event->time_msec, event->keycode, event->state);
  }
  
-@@ -1383,6 +1459,7 @@ int main(int argc, char** argv) {
+@@ -1383,6 +1441,7 @@ int main(int argc, char** argv) {
    wl_list_init(&server.outputs);
    wl_list_init(&server.keyboards);
    read_greeter_config(&server);
@@ -154,19 +131,18 @@ index 96d4724..7700820 100644
  
    server.display = wl_display_create();
    if (server.display == NULL) {
-@@ -1493,6 +1570,11 @@ int main(int argc, char** argv) {
+@@ -1493,6 +1552,10 @@ int main(int argc, char** argv) {
  
    struct wl_event_loop* loop = wl_display_get_event_loop(server.display);
    server.sigchld_source = wl_event_loop_add_signal(loop, SIGCHLD, handle_sigchld, &server);
 +  if (server.idle_timeout_sec > 0) {
 +    server.idle_timer = wl_event_loop_add_timer(loop, handle_idle_timer, &server);
-+    wl_event_source_timer_update(server.idle_timer, 2000);
-+    wlr_log(WLR_INFO, "idle: screen blank after %d s of no input", server.idle_timeout_sec);
++    wl_event_source_timer_update(server.idle_timer, IDLE_POLL_MS);
 +  }
    server.child_argc = argc;
    server.child_argv_ptr = argv;
    schedule_launch(&server);
-@@ -1506,6 +1588,9 @@ int main(int argc, char** argv) {
+@@ -1506,6 +1569,9 @@ int main(int argc, char** argv) {
    if (server.sigchld_source != NULL) {
      wl_event_source_remove(server.sigchld_source);
    }

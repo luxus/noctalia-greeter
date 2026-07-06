@@ -1,5 +1,5 @@
 {
-  description = "noctalia-greeter with luxus patches — output mode selection (upstream PR staging)";
+  description = "noctalia-greeter with luxus patches (upstream PR staging)";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";

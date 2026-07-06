@@ -4,6 +4,9 @@
 patches staged for upstream PRs. Not a source fork — `overrideAttrs` over the
 upstream flake package.
 
+**Source PR branches** live in [luxus/noctalia-greeter-1](https://github.com/luxus/noctalia-greeter-1)
+(GitHub fork of upstream; this repo name is the Nix wrapper).
+
 ## Use from your flake
 
 ```nix
@@ -11,7 +14,6 @@ upstream flake package.
   inputs.noctalia-greeter.url = "github:luxus/noctalia-greeter";
   inputs.noctalia-greeter.inputs.nixpkgs.follows = "nixpkgs";
 
-  # Patched greeter + greetd nixos module (default package is already patched):
   imports = [ inputs.noctalia-greeter.nixosModules.default ];
   programs.noctalia-greeter.enable = true;
 }
@@ -27,14 +29,12 @@ nix build .#noctalia-greeter
 
 | Patch | Purpose | Upstream |
 | --- | --- | --- |
-| `noctalia-greeter-output-mode.patch` | `[output] width` / `height` in `greeter.toml` to pick a DRM mode and avoid login modeset flash | PR [noctalia-dev/noctalia-greeter#55](https://github.com/noctalia-dev/noctalia-greeter/pull/55) |
-| `noctalia-greeter-idle-blank.patch` | `[idle] timeout` — compositor blanks outputs after no pointer/keyboard input | pending upstream PR |
+| `noctalia-greeter-output-mode.patch` | `[output] width` / `height` in `greeter.toml` | PR [#55](https://github.com/noctalia-dev/noctalia-greeter/pull/55) |
+| `noctalia-greeter-idle-blank.patch` | `[idle] timeout` — blank outputs after no input | draft [#56](https://github.com/noctalia-dev/noctalia-greeter/pull/56) (after #55) |
 
-On an upstream version bump, rebuild and fix any rejected hunks. Drop patches here
-once they land upstream.
+Drop patches here once they land upstream.
 
 ## What this repo is not
 
-- **Not** host greeter layout (`greeter.toml` content, connector names, greetd PAM) —
-  that stays in [luxusAi](https://github.com/luxus/luxusAi) (`lib/noctalia-greeter-conf.nix`, `lib/lea-display-layout.nix`).
-- **Not** a fork of noctalia-greeter source — patches only, applied at build time.
+- Host greeter layout (`greeter.toml` content) — [luxusAi](https://github.com/luxus/luxusAi) (`lib/noctalia-greeter-conf.nix`, `lib/lea-display-layout.nix`).
+- A source tree fork — patches only, applied at build time.
