@@ -1,5 +1,5 @@
 diff --git a/src/compositor/noctalia_compositor.c b/src/compositor/noctalia_compositor.c
-index 03e7e3f..96d4724 100644
+index 03e7e3f..e40bb76 100644
 --- a/src/compositor/noctalia_compositor.c
 +++ b/src/compositor/noctalia_compositor.c
 @@ -121,6 +121,8 @@ struct greeter_server {
@@ -33,12 +33,15 @@ index 03e7e3f..96d4724 100644
    if (config.cursor_theme[0] != '\0') {
      snprintf(server->cursor_theme, sizeof(server->cursor_theme), "%s", config.cursor_theme);
    }
-@@ -622,7 +632,24 @@ static void disable_output(struct greeter_output* output) {
+@@ -622,7 +632,27 @@ static void disable_output(struct greeter_output* output) {
    }
  }
  
 -static struct wlr_output_mode* select_output_mode(struct wlr_output* wlr_output) {
 +static struct wlr_output_mode* select_output_mode(struct wlr_output* wlr_output, int manual_width, int manual_height) {
++  if ((manual_width > 0) != (manual_height > 0)) {
++    wlr_log(WLR_INFO, "output width/height require both values; ignoring partial manual mode for %s", wlr_output->name);
++  }
 +  if (manual_width > 0 && manual_height > 0) {
 +    struct wlr_output_mode* best = NULL;
 +    struct wlr_output_mode* mode;
@@ -59,7 +62,7 @@ index 03e7e3f..96d4724 100644
    struct wlr_output_mode* preferred = wlr_output_preferred_mode(wlr_output);
    if (preferred == NULL) {
      return NULL;
-@@ -656,12 +683,13 @@ static bool commit_output_enabled(struct greeter_output* output) {
+@@ -656,12 +686,13 @@ static bool commit_output_enabled(struct greeter_output* output) {
    struct wlr_output_state state;
    wlr_output_state_init(&state);
    wlr_output_state_set_enabled(&state, true);
@@ -76,7 +79,7 @@ index 03e7e3f..96d4724 100644
    bool ok = wlr_output_commit_state(output->wlr_output, &state);
    wlr_output_state_finish(&state);
 diff --git a/src/greeter/greeter_config_io.cpp b/src/greeter/greeter_config_io.cpp
-index 6a9612c..593d559 100644
+index 6a9612c..953d001 100644
 --- a/src/greeter/greeter_config_io.cpp
 +++ b/src/greeter/greeter_config_io.cpp
 @@ -35,7 +35,7 @@ namespace {
@@ -104,7 +107,7 @@ index 6a9612c..593d559 100644
    void warnUnknownTopLevelKey(const std::filesystem::path& path, std::string_view key) {
      kLog.warn("{}: unrecognized top-level key '{}' (ignored)", path.string(), key);
    }
-@@ -144,10 +153,16 @@ namespace {
+@@ -144,10 +153,24 @@ namespace {
              config.outputName = stringValue(entryNode);
            } else if (entryView == "layout") {
              config.outputLayout = stringValue(entryNode);
@@ -119,13 +122,21 @@ index 6a9612c..593d559 100644
 +              kLog.warn("{}: invalid output.scale value", path.string());
 +            }
 +          } else if (entryView == "width") {
-+            config.outputModeWidth = modeDimensionValue(entryNode);
++            if (const auto width = modeDimensionValue(entryNode)) {
++              config.outputModeWidth = *width;
++            } else {
++              kLog.warn("{}: invalid output.width value", path.string());
++            }
 +          } else if (entryView == "height") {
-+            config.outputModeHeight = modeDimensionValue(entryNode);
++            if (const auto height = modeDimensionValue(entryNode)) {
++              config.outputModeHeight = *height;
++            } else {
++              kLog.warn("{}: invalid output.height value", path.string());
++            }
            }
          } else if (keyView == "cursor") {
            if (!isKnownCursorKey(entryView)) {
-@@ -369,7 +384,8 @@ namespace greeter::config {
+@@ -369,7 +392,8 @@ namespace greeter::config {
      std::ostringstream out;
      out << "# noctalia-greeter greeter.toml\n";
      out << "# [session] default/last, [user] default, [appearance] scheme/password_style/hide_logo\n";
@@ -135,7 +146,7 @@ index 6a9612c..593d559 100644
      out << "# [auth] allow_empty_password (bool, default false; enables fingerprint/smartcard PAM auth)\n";
      out << '\n';
      out << formatToml(table);
-@@ -415,6 +431,12 @@ extern "C" void greeter_compositor_config_load(const char* state_dir, struct gre
+@@ -415,6 +439,12 @@ extern "C" void greeter_compositor_config_load(const char* state_dir, struct gre
    if (config.outputScale.has_value() && *config.outputScale >= 1.0f) {
      out->manual_scale = *config.outputScale;
    }
