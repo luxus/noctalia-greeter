@@ -1,8 +1,4 @@
-# Upstream noctalia-greeter with luxus patches (see patches/ and README).
+# Pass-through when upstream branch already carries local patches.
 { noctaliaGreeter }:
 
-noctaliaGreeter.overrideAttrs (old: {
-  patches = (old.patches or [ ]) ++ [
-    ./patches/noctalia-greeter-output-transform.patch
-  ];
-})
+noctaliaGreeter

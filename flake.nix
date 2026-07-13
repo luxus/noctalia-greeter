@@ -4,7 +4,8 @@
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     upstream = {
-      url = "github:noctalia-dev/noctalia-greeter";
+      # Local multi-wallpaper + transform testing branch (no PRs yet).
+      url = "github:luxus/noctalia-greeter-1/local/per-output-wallpaper";
       inputs.nixpkgs.follows = "nixpkgs";
     };
   };
@@ -25,9 +26,8 @@
           system = pkgs.stdenv.hostPlatform.system;
         in
         rec {
-          noctalia-greeter = pkgs.callPackage ./pkgs/noctalia-greeter {
-            noctaliaGreeter = upstream.packages.${system}.default;
-          };
+          # Branch already contains transform + multi-wallpaper; pass through.
+          noctalia-greeter = upstream.packages.${system}.default;
           default = noctalia-greeter;
         }
       );
