@@ -29,10 +29,35 @@ nix build .#noctalia-greeter
 
 | Patch | Purpose | Upstream |
 | --- | --- | --- |
-| `noctalia-greeter-output-mode.patch` | `[output] width` / `height` in `greeter.toml` | PR [#55](https://github.com/noctalia-dev/noctalia-greeter/pull/55) |
-| `noctalia-greeter-idle-blank.patch` | `[idle] timeout` — blank outputs after no input | draft [#56](https://github.com/noctalia-dev/noctalia-greeter/pull/56) (after #55) |
+| `noctalia-greeter-idle-blank.patch` | `[idle] timeout` — blank outputs after no input | PR [#56](https://github.com/noctalia-dev/noctalia-greeter/pull/56) |
+| `noctalia-greeter-output-transform.patch` | `[output] transforms` — portrait / rotated monitors | PR [#62](https://github.com/noctalia-dev/noctalia-greeter/pull/62) |
 
 Drop patches here once they land upstream.
+
+### Local test: portrait transform
+
+1. List connectors (from a Wayland session):
+
+```sh
+noctalia-greeter outputs
+```
+
+2. In `/var/lib/noctalia-greeter/greeter.toml` (or Nix `programs.noctalia-greeter.settings`):
+
+```toml
+[output]
+# optional: show greeter only on the vertical panel
+# name = "HDMI-A-1"
+transforms = "HDMI-A-1:90"
+```
+
+3. Disable autologin so you actually see the greeter, rebuild, then:
+
+```sh
+sudo systemctl restart greetd
+```
+
+Supported tokens: `normal`/`0`, `90`, `180`, `270`, `flipped`, `flipped-90`, …
 
 ## What this repo is not
 
