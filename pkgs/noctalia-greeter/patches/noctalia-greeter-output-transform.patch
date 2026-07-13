@@ -1,5 +1,5 @@
 diff --git a/src/compositor/noctalia_compositor.c b/src/compositor/noctalia_compositor.c
-index fea77e2..be20f1c 100644
+index fea77e2..086f10d 100644
 --- a/src/compositor/noctalia_compositor.c
 +++ b/src/compositor/noctalia_compositor.c
 @@ -100,6 +100,11 @@ struct greeter_output_placement {
@@ -23,7 +23,7 @@ index fea77e2..be20f1c 100644
    int idle_timeout_sec;
    struct timespec last_activity;
    int idle_timerfd;
-@@ -284,11 +291,112 @@ static void parse_output_layout_value(struct greeter_server* server, char* value
+@@ -284,11 +291,121 @@ static void parse_output_layout_value(struct greeter_server* server, char* value
    }
  }
  
@@ -68,7 +68,13 @@ index fea77e2..be20f1c 100644
 +
 +static bool parse_output_transform_entry(const char* token, struct greeter_output_transform* out) {
 +  char buf[256];
-+  snprintf(buf, sizeof(buf), "%s", token);
++  if (token == NULL || out == NULL) {
++    return false;
++  }
++  const int token_len = snprintf(buf, sizeof(buf), "%s", token);
++  if (token_len < 0 || (size_t)token_len >= sizeof(buf)) {
++    return false;
++  }
 +  char* colon = strrchr(buf, ':');
 +  if (colon == NULL || colon == buf) {
 +    return false;
@@ -83,7 +89,10 @@ index fea77e2..be20f1c 100644
 +  if (!parse_transform_token(transform_raw, &transform)) {
 +    return false;
 +  }
-+  snprintf(out->name, sizeof(out->name), "%s", name);
++  const int name_len = snprintf(out->name, sizeof(out->name), "%s", name);
++  if (name_len < 0 || (size_t)name_len >= sizeof(out->name)) {
++    return false;
++  }
 +  out->transform = transform;
 +  return true;
 +}
@@ -136,7 +145,7 @@ index fea77e2..be20f1c 100644
    server->idle_timeout_sec = 0;
    server->cursor_theme[0] = '\0';
    server->cursor_size = 0;
-@@ -363,6 +471,11 @@ static void read_greeter_config(struct greeter_server* server) {
+@@ -363,6 +480,11 @@ static void read_greeter_config(struct greeter_server* server) {
      snprintf(layout, sizeof(layout), "%s", config.output_layout);
      parse_output_layout_value(server, layout);
    }
@@ -148,7 +157,7 @@ index fea77e2..be20f1c 100644
  }
  
  static struct xkb_keymap* compose_keyboard_keymap(struct xkb_context* context, const struct greeter_server* server) {
-@@ -864,6 +977,8 @@ static bool commit_output_enabled(struct greeter_output* output) {
+@@ -864,6 +986,8 @@ static bool commit_output_enabled(struct greeter_output* output) {
      wlr_output_state_set_mode(&state, mode);
      wlr_log(WLR_INFO, "selected output mode: %dx%d @ %.3f Hz", mode->width, mode->height, mode->refresh / 1000.0);
    }
@@ -157,7 +166,7 @@ index fea77e2..be20f1c 100644
    const float scale = output_ui_scale(output->wlr_output, server->manual_scale);
    wlr_output_state_set_scale(&state, scale);
    bool ok = wlr_output_commit_state(output->wlr_output, &state);
-@@ -873,7 +988,7 @@ static bool commit_output_enabled(struct greeter_output* output) {
+@@ -873,7 +997,7 @@ static bool commit_output_enabled(struct greeter_output* output) {
      return false;
    }
  
