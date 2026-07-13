@@ -29,10 +29,10 @@ nix build .#noctalia-greeter
 
 | Patch | Purpose | Upstream |
 | --- | --- | --- |
-| `noctalia-greeter-idle-blank.patch` | `[idle] timeout` — blank outputs after no input | PR [#56](https://github.com/noctalia-dev/noctalia-greeter/pull/56) |
 | `noctalia-greeter-output-transform.patch` | `[output] transforms` — portrait / rotated monitors | PR [#62](https://github.com/noctalia-dev/noctalia-greeter/pull/62) |
 
 Drop patches here once they land upstream.
+
 
 ### Local test: portrait transform
 

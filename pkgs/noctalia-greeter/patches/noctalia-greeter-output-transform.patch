@@ -1,5 +1,5 @@
 diff --git a/src/compositor/noctalia_compositor.c b/src/compositor/noctalia_compositor.c
-index fea77e2..26ae008 100644
+index fea77e2..be20f1c 100644
 --- a/src/compositor/noctalia_compositor.c
 +++ b/src/compositor/noctalia_compositor.c
 @@ -100,6 +100,11 @@ struct greeter_output_placement {
@@ -157,32 +157,34 @@ index fea77e2..26ae008 100644
    const float scale = output_ui_scale(output->wlr_output, server->manual_scale);
    wlr_output_state_set_scale(&state, scale);
    bool ok = wlr_output_commit_state(output->wlr_output, &state);
-@@ -873,7 +988,9 @@ static bool commit_output_enabled(struct greeter_output* output) {
+@@ -873,7 +988,7 @@ static bool commit_output_enabled(struct greeter_output* output) {
      return false;
    }
  
 -  wlr_log(WLR_INFO, "output %s scale=%.2f", output->wlr_output->name, scale);
-+  wlr_log(
-+      WLR_INFO, "output %s scale=%.2f transform=%d", output->wlr_output->name, scale, (int)transform
-+  );
++  wlr_log(WLR_INFO, "output %s scale=%.2f transform=%d", output->wlr_output->name, scale, (int)transform);
    return true;
  }
  
 diff --git a/src/greeter/greeter_config_io.cpp b/src/greeter/greeter_config_io.cpp
-index 1246f08..5fa6cea 100644
+index 1246f08..8a971c6 100644
 --- a/src/greeter/greeter_config_io.cpp
 +++ b/src/greeter/greeter_config_io.cpp
-@@ -36,7 +36,8 @@ namespace {
+@@ -36,7 +36,12 @@ namespace {
    }
  
    [[nodiscard]] bool isKnownOutputKey(std::string_view key) {
 -    return key == "name" || key == "layout" || key == "scale" || key == "width" || key == "height";
-+    return key == "name" || key == "layout" || key == "scale" || key == "width" || key == "height"
++    return key == "name"
++        || key == "layout"
++        || key == "scale"
++        || key == "width"
++        || key == "height"
 +        || key == "transforms";
    }
  
    [[nodiscard]] bool isKnownIdleKey(std::string_view key) { return key == "timeout"; }
-@@ -183,6 +184,8 @@ namespace {
+@@ -183,6 +188,8 @@ namespace {
              } else {
                kLog.warn("{}: invalid output.height value", path.string());
              }
@@ -191,7 +193,7 @@ index 1246f08..5fa6cea 100644
            }
          } else if (keyView == "idle") {
            if (!isKnownIdleKey(entryView)) {
-@@ -318,6 +321,12 @@ namespace {
+@@ -318,6 +325,12 @@ namespace {
      if (config.outputModeHeight.has_value()) {
        output.insert_or_assign("height", static_cast<int64_t>(*config.outputModeHeight));
      }
@@ -204,7 +206,7 @@ index 1246f08..5fa6cea 100644
      if (!output.empty()) {
        root.insert("output", std::move(output));
      }
-@@ -428,7 +437,7 @@ namespace greeter::config {
+@@ -428,7 +441,7 @@ namespace greeter::config {
      std::ostringstream out;
      out << "# noctalia-greeter greeter.toml\n";
      out << "# [session] default/last, [user] default, [appearance] scheme/password_style/hide_logo\n";
@@ -213,7 +215,7 @@ index 1246f08..5fa6cea 100644
      out << "# [keyboard] layout/variant/options/numlock\n";
      out << "# [auth] allow_empty_password (bool, default false; enables fingerprint/smartcard PAM auth)\n";
      out << '\n';
-@@ -471,6 +480,7 @@ extern "C" void greeter_compositor_config_load(const char* state_dir, struct gre
+@@ -471,6 +484,7 @@ extern "C" void greeter_compositor_config_load(const char* state_dir, struct gre
      out->keyboard_numlock = *config.keyboardNumlock ? 1 : -1;
    }
    copyString(out->output_layout, sizeof(out->output_layout), config.outputLayout);

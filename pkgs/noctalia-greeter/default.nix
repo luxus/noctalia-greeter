@@ -3,7 +3,6 @@
 
 noctaliaGreeter.overrideAttrs (old: {
   patches = (old.patches or [ ]) ++ [
-    ./patches/noctalia-greeter-idle-blank.patch
     ./patches/noctalia-greeter-output-transform.patch
   ];
 })
